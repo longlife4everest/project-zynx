@@ -126,7 +126,7 @@ export const HUD: React.FC = () => {
                     {/* Image Container */}
                     <div className="relative w-full bg-yellow-400 border-b-8 border-black">
                         <img
-                            src="https://www.gstatic.com/aistudio/starter-apps/gemini_runner/gemini_runner.png"
+                            src="/zynx_runner_cover.png"
                             alt="Zynx Runner Cover"
                             className="w-full h-auto block filter contrast-125 saturate-150 mix-blend-multiply"
                         />
