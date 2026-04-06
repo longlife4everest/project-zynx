@@ -107,7 +107,7 @@ const ShopScreen: React.FC = () => {
 };
 
 export const HUD: React.FC = () => {
-    const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed } = useStore();
+    const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, gorillaDistance, comicPopups } = useStore();
     const target = ['Z', 'Y', 'N', 'X', '!', '!'];
 
     // Common container style
@@ -137,7 +137,7 @@ export const HUD: React.FC = () => {
                     <div className="p-6 pb-8 text-center bg-[#ff0055]">
                         <button
                             onClick={() => { audio.init(); startGame(); }}
-                            className="w-full flex items-center justify-center px-6 py-4 bg-cyan-400 text-black border-4 border-black font-black text-2xl hover:bg-yellow-400 transition-all shadow-[6px_6px_0px_#000] hover:translate-y-1 hover:shadow-[2px_2px_0px_#000] font-cyber transform -rotate-2"
+                            className="w-full flex items-center justify-center px-6 py-4 bg-cyan-400 text-black border-4 border-black font-black text-2xl hover:bg-yellow-400 transition-all shadow-[6px_6px_0px_#000] hover:translate-y-1 hover:shadow-[2px_2px_0px_#000] font-cyber transform -rotate-2 squash-stretch-btn doodle-jitter"
                         >
                             START RUNNING <Play className="ml-2 w-6 h-6 fill-black" />
                         </button>
@@ -180,7 +180,7 @@ export const HUD: React.FC = () => {
 
                     <button
                         onClick={() => { audio.init(); restartGame(); }}
-                        className="px-8 md:px-12 py-4 md:py-5 bg-green-400 text-black border-4 border-black font-black text-2xl md:text-3xl hover:bg-yellow-400 transition-all shadow-[8px_8px_0px_#000] hover:translate-y-1 hover:shadow-[4px_4px_0px_#000] transform -rotate-1 mt-4"
+                        className="px-8 md:px-12 py-4 md:py-5 bg-green-400 text-black border-4 border-black font-black text-2xl md:text-3xl hover:bg-yellow-400 transition-all shadow-[8px_8px_0px_#000] hover:translate-y-1 hover:shadow-[4px_4px_0px_#000] transform -rotate-1 mt-4 squash-stretch-btn doodle-jitter"
                     >
                         AGAIN?
                     </button>
@@ -222,7 +222,7 @@ export const HUD: React.FC = () => {
 
                     <button
                         onClick={() => { audio.init(); restartGame(); }}
-                        className="px-8 md:px-12 py-4 md:py-5 bg-white text-black border-4 border-black font-black text-2xl md:text-3xl hover:bg-yellow-400 transition-all shadow-[8px_8px_0px_#000] hover:translate-y-1 hover:shadow-[4px_4px_0px_#000] transform -rotate-1"
+                        className="px-8 md:px-12 py-4 md:py-5 bg-white text-black border-4 border-black font-black text-2xl md:text-3xl hover:bg-yellow-400 transition-all shadow-[8px_8px_0px_#000] hover:translate-y-1 hover:shadow-[4px_4px_0px_#000] transform -rotate-1 squash-stretch-btn doodle-jitter"
                     >
                         PLAY AGAIN
                     </button>
@@ -236,7 +236,7 @@ export const HUD: React.FC = () => {
             {/* Top Bar */}
             <div className="flex justify-between items-start w-full">
                 <div className="flex flex-col">
-                    <div className="text-4xl md:text-6xl font-black text-[#ff0055] drop-shadow-[5px_5px_0px_#000] font-cyber transform -rotate-3 p-2 bg-yellow-400 border-4 border-black inline-block">
+                    <div className="text-4xl md:text-6xl font-black text-[#ff0055] drop-shadow-[5px_5px_0px_#000] font-cyber transform -rotate-3 p-2 bg-yellow-400 border-4 border-black inline-block doodle-pulse">
                         {score.toLocaleString()}
                     </div>
                 </div>
@@ -292,6 +292,40 @@ export const HUD: React.FC = () => {
                     <Zap className="w-5 h-5 md:w-8 md:h-8 animate-bounce fill-yellow-400 text-black" />
                     <span className="font-cyber font-black text-xl md:text-2xl text-black">SPEED {Math.round((speed / RUN_SPEED_BASE) * 100)}%</span>
                 </div>
+            </div>
+
+            {/* Gorilla Pressure Halftone Overlay */}
+            {status === GameStatus.PLAYING && gorillaDistance < 60 && (
+                <div
+                    className="absolute inset-0 pointer-events-none z-[80] transition-opacity duration-300 pointer-events-none"
+                    style={{
+                        boxShadow: `inset 0 0 100px ${60 - gorillaDistance}px rgba(255, 0, 85, ${1 - gorillaDistance / 60})`
+                    }}
+                >
+                    {gorillaDistance < 30 && (
+                        <div className="absolute inset-0 border-[16px] border-[#ff0055] animate-pulse pointer-events-none" />
+                    )}
+                </div>
+            )}
+
+            {/* Comic Popups Container */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-[110]">
+                {comicPopups.map((popup) => (
+                    <div
+                        key={popup.id}
+                        className="absolute text-5xl md:text-8xl font-black font-cyber animate-bounce"
+                        style={{
+                            left: `${popup.x}%`,
+                            top: `${popup.y}%`,
+                            color: popup.color,
+                            transform: `rotate(${popup.rotation}deg)`,
+                            WebkitTextStroke: '2px black',
+                            textShadow: '8px 8px 0px #000'
+                        }}
+                    >
+                        {popup.text}
+                    </div>
+                ))}
             </div>
         </div>
     );

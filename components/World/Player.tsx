@@ -14,41 +14,45 @@ import { audio } from '../System/Audio';
 
 // Physics Constants
 const GRAVITY = 50;
-const JUMP_FORCE = 16; // Results in ~2.56 height (v^2 / 2g)
+const JUMP_FORCE = 16;
 
-// Static Geometries
-const TORSO_GEO = new THREE.CylinderGeometry(0.25, 0.15, 0.6, 4);
-const JETPACK_GEO = new THREE.BoxGeometry(0.3, 0.4, 0.15);
-const GLOW_STRIP_GEO = new THREE.PlaneGeometry(0.05, 0.2);
-const HEAD_GEO = new THREE.BoxGeometry(0.25, 0.3, 0.3);
-const ARM_GEO = new THREE.BoxGeometry(0.12, 0.6, 0.12);
-const JOINT_SPHERE_GEO = new THREE.SphereGeometry(0.07);
-const HIPS_GEO = new THREE.CylinderGeometry(0.16, 0.16, 0.2);
-const LEG_GEO = new THREE.BoxGeometry(0.15, 0.7, 0.15);
-const SHADOW_GEO = new THREE.CircleGeometry(0.5, 32);
+// Character Geometries
+// Shark Body
+const SHARK_BODY_GEO = new THREE.CapsuleGeometry(0.3, 0.7, 4, 8);
+const SHARK_SNOUT_GEO = new THREE.ConeGeometry(0.3, 0.6, 8);
+const SHARK_TAIL_GEO = new THREE.ConeGeometry(0.2, 0.5, 8);
+const SHARK_FIN_GEO = new THREE.ConeGeometry(0.15, 0.4, 4);
+
+// Rider
+const RIDER_BODY_GEO = new THREE.BoxGeometry(0.25, 0.35, 0.25);
+const RIDER_HEAD_GEO = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+
+// Equipment
+const ROCKET_GEO = new THREE.CylinderGeometry(0.12, 0.15, 0.5, 8);
+const NOS_FLAME_GEO = new THREE.ConeGeometry(0.15, 0.6, 8);
+const SHADOW_GEO = new THREE.CircleGeometry(0.6, 32);
 
 export const Player: React.FC = () => {
     const groupRef = useRef<THREE.Group>(null);
     const bodyRef = useRef<THREE.Group>(null);
     const shadowRef = useRef<THREE.Mesh>(null);
 
-    // Limb Refs for Animation
-    const leftArmRef = useRef<THREE.Group>(null);
-    const rightArmRef = useRef<THREE.Group>(null);
-    const leftLegRef = useRef<THREE.Group>(null);
-    const rightLegRef = useRef<THREE.Group>(null);
-    const headRef = useRef<THREE.Group>(null);
+    // Animation Refs
+    const sharkRef = useRef<THREE.Group>(null);
+    const tailRef = useRef<THREE.Group>(null);
+    const nosRef = useRef<THREE.Mesh>(null);
+    const riderRef = useRef<THREE.Group>(null);
 
     const { status, laneCount, takeDamage, hasDoubleJump, activateImmortality, isImmortalityActive } = useStore();
 
     const [lane, setLane] = React.useState(0);
     const targetX = useRef(0);
 
-    // Physics State (using Refs for immediate logic updates)
+    // Physics State
     const isJumping = useRef(false);
     const velocityY = useRef(0);
     const jumpsPerformed = useRef(0);
-    const spinRotation = useRef(0); // For double jump flip
+    const spinRotation = useRef(0);
 
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
@@ -56,20 +60,19 @@ export const Player: React.FC = () => {
     const isInvincible = useRef(false);
     const lastDamageTime = useRef(0);
 
-    // Memoized Materials
-    const { armorMaterial, jointMaterial, glowMaterial, shadowMaterial } = useMemo(() => {
-        const armorColor = isImmortalityActive ? '#ffd700' : '#ff0055'; // Hot pink neon graffiti style
-        const glowColor = isImmortalityActive ? '#ffffff' : '#00ffcc';
-
+    // Materials
+    const { sharkMaterial, bellyMaterial, riderMaterial, rocketMaterial, flameMaterial } = useMemo(() => {
+        const primaryColor = isImmortalityActive ? '#ffd700' : '#00aaff'; // Cyber blue shark
         return {
-            armorMaterial: new THREE.MeshToonMaterial({ color: armorColor }),
-            jointMaterial: new THREE.MeshToonMaterial({ color: '#111111' }),
-            glowMaterial: new THREE.MeshBasicMaterial({ color: glowColor }),
-            shadowMaterial: new THREE.MeshBasicMaterial({ color: '#000000', opacity: 0.3, transparent: true })
+            sharkMaterial: new THREE.MeshToonMaterial({ color: primaryColor }),
+            bellyMaterial: new THREE.MeshToonMaterial({ color: '#ffffff' }),
+            riderMaterial: new THREE.MeshToonMaterial({ color: '#ff0055' }),
+            rocketMaterial: new THREE.MeshToonMaterial({ color: '#333333' }),
+            flameMaterial: new THREE.MeshBasicMaterial({ color: '#ffcc00' })
         };
-    }, [isImmortalityActive]); // Only recreate if immortality state changes (for color shift)
+    }, [isImmortalityActive]);
 
-    // --- Reset State on Game Start ---
+    // Reset State
     useEffect(() => {
         if (status === GameStatus.PLAYING) {
             isJumping.current = false;
@@ -81,7 +84,6 @@ export const Player: React.FC = () => {
         }
     }, [status]);
 
-    // Safety: Clamp lane if laneCount changes (e.g. restart)
     useEffect(() => {
         const maxLane = Math.floor(laneCount / 2);
         if (Math.abs(lane) > maxLane) {
@@ -89,22 +91,20 @@ export const Player: React.FC = () => {
         }
     }, [laneCount, lane]);
 
-    // --- Controls (Keyboard & Touch) ---
+    // Controls
     const triggerJump = () => {
         const maxJumps = hasDoubleJump ? 2 : 1;
 
         if (!isJumping.current) {
-            // First Jump
             audio.playJump(false);
             isJumping.current = true;
             jumpsPerformed.current = 1;
             velocityY.current = JUMP_FORCE;
         } else if (jumpsPerformed.current < maxJumps) {
-            // Double Jump (Mid-air)
             audio.playJump(true);
             jumpsPerformed.current += 1;
-            velocityY.current = JUMP_FORCE; // Reset velocity upwards
-            spinRotation.current = 0; // Start flip
+            velocityY.current = JUMP_FORCE;
+            spinRotation.current = 0;
         }
     };
 
@@ -137,7 +137,6 @@ export const Player: React.FC = () => {
             const deltaY = e.changedTouches[0].clientY - touchStartY.current;
             const maxLane = Math.floor(laneCount / 2);
 
-            // Swipe Detection
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
                 if (deltaX > 0) setLane(l => Math.min(l + 1, maxLane));
                 else setLane(l => Math.max(l - 1, -maxLane));
@@ -156,12 +155,11 @@ export const Player: React.FC = () => {
         };
     }, [status, laneCount, hasDoubleJump, activateImmortality]);
 
-    // --- Animation Loop ---
+    // Animation Loop
     useFrame((state, delta) => {
         if (!groupRef.current) return;
         if (status !== GameStatus.PLAYING && status !== GameStatus.SHOP) return;
 
-        // 1. Horizontal Position
         targetX.current = lane * LANE_WIDTH;
         groupRef.current.position.x = THREE.MathUtils.lerp(
             groupRef.current.position.x,
@@ -169,74 +167,92 @@ export const Player: React.FC = () => {
             delta * 15
         );
 
-        // 2. Physics (Jump)
+        // Physics 
         if (isJumping.current) {
-            // Apply Velocity
             groupRef.current.position.y += velocityY.current * delta;
-            // Apply Gravity
             velocityY.current -= GRAVITY * delta;
 
-            // Floor Collision
             if (groupRef.current.position.y <= 0) {
                 groupRef.current.position.y = 0;
                 isJumping.current = false;
                 jumpsPerformed.current = 0;
                 velocityY.current = 0;
-                // Reset flip
                 if (bodyRef.current) bodyRef.current.rotation.x = 0;
             }
 
-            // Double Jump Flip
+            // Double Jump Trick Flip
             if (jumpsPerformed.current === 2 && bodyRef.current) {
-                // Rotate 360 degrees quickly
                 spinRotation.current -= delta * 15;
                 if (spinRotation.current < -Math.PI * 2) spinRotation.current = -Math.PI * 2;
                 bodyRef.current.rotation.x = spinRotation.current;
             }
         }
 
-        // Banking Rotation
+        // Banking Rotation (shark tilt side to side)
         const xDiff = targetX.current - groupRef.current.position.x;
-        groupRef.current.rotation.z = -xDiff * 0.2;
-        groupRef.current.rotation.x = isJumping.current ? 0.1 : 0.05;
+        groupRef.current.rotation.z = -xDiff * 0.25;
+        groupRef.current.rotation.x = isJumping.current ? 0.15 : 0.05;
 
-        // 3. Skeletal Animation
         const time = state.clock.elapsedTime * 25;
+        let squashY = 1.0;
+        let squashXZ = 1.0;
 
         if (!isJumping.current) {
-            // Running Cycle
-            if (leftArmRef.current) leftArmRef.current.rotation.x = Math.sin(time) * 0.7;
-            if (rightArmRef.current) rightArmRef.current.rotation.x = Math.sin(time + Math.PI) * 0.7;
-            if (leftLegRef.current) leftLegRef.current.rotation.x = Math.sin(time + Math.PI) * 1.0;
-            if (rightLegRef.current) rightLegRef.current.rotation.x = Math.sin(time) * 1.0;
+            squashY = 1.0 + Math.abs(Math.sin(time / 2)) * 0.12;
+            squashXZ = 1.0 - Math.abs(Math.sin(time / 2)) * 0.06;
 
-            if (bodyRef.current) bodyRef.current.position.y = 1.1 + Math.abs(Math.sin(time)) * 0.1;
+            if (bodyRef.current) {
+                bodyRef.current.position.y = 0.5 + Math.abs(Math.sin(time)) * 0.1;
+                bodyRef.current.scale.set(squashXZ, squashY, squashXZ);
+            }
         } else {
-            // Jumping Pose
-            const jumpPoseSpeed = delta * 10;
-            if (leftArmRef.current) leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, -2.5, jumpPoseSpeed);
-            if (rightArmRef.current) rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, -2.5, jumpPoseSpeed);
-            if (leftLegRef.current) leftLegRef.current.rotation.x = THREE.MathUtils.lerp(leftLegRef.current.rotation.x, 0.5, jumpPoseSpeed);
-            if (rightLegRef.current) rightLegRef.current.rotation.x = THREE.MathUtils.lerp(rightLegRef.current.rotation.x, -0.5, jumpPoseSpeed);
+            if (velocityY.current > 0) {
+                const stretch = Math.min(velocityY.current / JUMP_FORCE, 1.0);
+                squashY = 1.0 + stretch * 0.3;
+                squashXZ = 1.0 - stretch * 0.15;
+            } else {
+                squashY = 1.0;
+                squashXZ = 1.0;
+            }
+            if (bodyRef.current) {
+                bodyRef.current.scale.set(squashXZ, squashY, squashXZ);
+            }
 
-            // Only reset Y if not flipping (handled by flip logic mostly, but safe here)
-            if (bodyRef.current && jumpsPerformed.current !== 2) bodyRef.current.position.y = 1.1;
+            if (bodyRef.current && jumpsPerformed.current !== 2) bodyRef.current.position.y = 0.5;
         }
 
-        // 4. Dynamic Shadow
+        // Component Animations
+        // Tail wagging based on time
+        if (tailRef.current) {
+            tailRef.current.rotation.y = Math.sin(time) * 0.4;
+            tailRef.current.rotation.z = Math.sin(time * 0.5) * 0.1;
+        }
+        // Rider bouncing
+        if (riderRef.current) {
+            riderRef.current.position.y = 0.4 + Math.abs(Math.sin(time + 2)) * 0.05;
+            riderRef.current.rotation.z = Math.cos(time) * 0.1;
+        }
+        // Rocket NOS flickering exhaust
+        if (nosRef.current) {
+            const burst = 1 + Math.random() * 0.5 + Math.sin(time * 3) * 0.5;
+            nosRef.current.scale.set(burst, burst * 1.5, burst);
+            (nosRef.current.material as THREE.MeshBasicMaterial).color.setHSL((Math.random() * 0.1) + 0.05, 1, 0.5);
+        }
+
+        // Dynamic Shadow
         if (shadowRef.current) {
             const height = groupRef.current.position.y;
-            const scale = Math.max(0.2, 1 - (height / 2.5) * 0.5); // 2.5 is max jump height approx
-            const runStretch = isJumping.current ? 1 : 1 + Math.abs(Math.sin(time)) * 0.3;
+            const scale = Math.max(0.3, 1 - (height / 2.5) * 0.5);
+            const runStretch = isJumping.current ? 1 : 1 + Math.abs(Math.sin(time)) * 0.2;
 
             shadowRef.current.scale.set(scale, scale, scale * runStretch);
             const material = shadowRef.current.material as THREE.MeshBasicMaterial;
-            if (material && !Array.isArray(material)) {
-                material.opacity = Math.max(0.1, 0.3 - (height / 2.5) * 0.2);
+            if (material) {
+                material.opacity = Math.max(0.1, 0.4 - (height / 2.5) * 0.2);
             }
         }
 
-        // Invincibility / Immortality Effect
+        // Damage Flickering
         const showFlicker = isInvincible.current || isImmortalityActive;
         if (showFlicker) {
             if (isInvincible.current) {
@@ -247,19 +263,16 @@ export const Player: React.FC = () => {
                     groupRef.current.visible = Math.floor(Date.now() / 50) % 2 === 0;
                 }
             }
-            if (isImmortalityActive) {
-                groupRef.current.visible = true;
-            }
+            if (isImmortalityActive) groupRef.current.visible = true;
         } else {
             groupRef.current.visible = true;
         }
     });
 
-    // Damage Handler
     useEffect(() => {
         const checkHit = (e: any) => {
             if (isInvincible.current || isImmortalityActive) return;
-            audio.playDamage(); // Play damage sound
+            audio.playDamage();
             takeDamage();
             isInvincible.current = true;
             lastDamageTime.current = Date.now();
@@ -268,70 +281,73 @@ export const Player: React.FC = () => {
         return () => window.removeEventListener('player-hit', checkHit);
     }, [takeDamage, isImmortalityActive]);
 
+    // Construct Shark
     return (
         <group ref={groupRef} position={[0, 0, 0]}>
-            <group ref={bodyRef} position={[0, 1.1, 0]}>
+            <group ref={bodyRef} position={[0, 0.5, 0]}>
 
-                {/* Torso */}
-                <mesh castShadow position={[0, 0.2, 0]} geometry={TORSO_GEO} material={armorMaterial}>
-                    <Outlines thickness={0.04} color="black" />
-                </mesh>
+                <group ref={sharkRef}>
+                    {/* Main Hull */}
+                    <mesh rotation={[Math.PI / 2, 0, 0]} geometry={SHARK_BODY_GEO} material={sharkMaterial}>
+                        <Outlines thickness={0.07} color="black" />
+                    </mesh>
 
-                {/* Jetpack */}
-                <mesh position={[0, 0.2, -0.2]} geometry={JETPACK_GEO} material={jointMaterial}>
-                    <Outlines thickness={0.04} color="black" />
-                </mesh>
-                <mesh position={[-0.08, 0.1, -0.28]} geometry={GLOW_STRIP_GEO} material={glowMaterial} />
-                <mesh position={[0.08, 0.1, -0.28]} geometry={GLOW_STRIP_GEO} material={glowMaterial} />
+                    {/* Snout */}
+                    <mesh position={[0, 0, -0.6]} rotation={[-Math.PI / 2, 0, 0]} geometry={SHARK_SNOUT_GEO} material={sharkMaterial}>
+                        <Outlines thickness={0.07} color="black" />
+                    </mesh>
 
-                {/* Head */}
-                <group ref={headRef} position={[0, 0.6, 0]}>
-                    <mesh castShadow geometry={HEAD_GEO} material={armorMaterial}>
-                        <Outlines thickness={0.04} color="black" />
+                    {/* Dorsal Fin */}
+                    <mesh position={[0, 0.4, 0]} rotation={[0.4, 0, 0]} geometry={SHARK_FIN_GEO} material={sharkMaterial}>
+                        <Outlines thickness={0.07} color="black" />
+                    </mesh>
+
+                    {/* Left/Right Pectoral Fins */}
+                    <mesh position={[-0.35, 0, -0.2]} rotation={[0, 0, Math.PI / 3]} geometry={SHARK_FIN_GEO} material={sharkMaterial}>
+                        <Outlines thickness={0.07} color="black" />
+                    </mesh>
+                    <mesh position={[0.35, 0, -0.2]} rotation={[0, 0, -Math.PI / 3]} geometry={SHARK_FIN_GEO} material={sharkMaterial}>
+                        <Outlines thickness={0.07} color="black" />
+                    </mesh>
+
+                    {/* Tail Assembly */}
+                    <group ref={tailRef} position={[0, 0, 0.5]}>
+                        <mesh position={[0, 0, 0.2]} rotation={[Math.PI / 2, 0, 0]} geometry={SHARK_TAIL_GEO} material={sharkMaterial}>
+                            <Outlines thickness={0.07} color="black" />
+                        </mesh>
+                        <mesh position={[0, 0.2, 0.5]} rotation={[0.3, 0, 0]} geometry={SHARK_FIN_GEO} material={sharkMaterial}>
+                            <Outlines thickness={0.07} color="black" />
+                        </mesh>
+                        <mesh position={[0, -0.2, 0.5]} rotation={[-0.3, 0, Math.PI]} geometry={SHARK_FIN_GEO} material={sharkMaterial}>
+                            <Outlines thickness={0.07} color="black" />
+                        </mesh>
+                    </group>
+
+                    {/* Rocket Launcher */}
+                    <group position={[0.3, 0.1, 0.2]}>
+                        <mesh rotation={[Math.PI / 2, 0, 0]} geometry={ROCKET_GEO} material={rocketMaterial}>
+                            <Outlines thickness={0.07} color="black" />
+                        </mesh>
+                        {/* NOS Flame Thrust */}
+                        <mesh ref={nosRef} position={[0, 0, 0.45]} rotation={[-Math.PI / 2, 0, 0]} geometry={NOS_FLAME_GEO} material={flameMaterial} />
+                    </group>
+                </group>
+
+                {/* Toon Rider */}
+                <group ref={riderRef} position={[0, 0.4, -0.1]}>
+                    <mesh geometry={RIDER_BODY_GEO} material={riderMaterial}>
+                        <Outlines thickness={0.07} color="black" />
+                    </mesh>
+                    <mesh position={[0, 0.3, 0.05]} geometry={RIDER_HEAD_GEO} material={bellyMaterial}>
+                        <Outlines thickness={0.07} color="black" />
                     </mesh>
                 </group>
 
-                {/* Arms */}
-                <group position={[0.32, 0.4, 0]}>
-                    <group ref={rightArmRef}>
-                        <mesh position={[0, -0.25, 0]} castShadow geometry={ARM_GEO} material={armorMaterial}>
-                            <Outlines thickness={0.04} color="black" />
-                        </mesh>
-                        <mesh position={[0, -0.55, 0]} geometry={JOINT_SPHERE_GEO} material={glowMaterial} />
-                    </group>
-                </group>
-                <group position={[-0.32, 0.4, 0]}>
-                    <group ref={leftArmRef}>
-                        <mesh position={[0, -0.25, 0]} castShadow geometry={ARM_GEO} material={armorMaterial}>
-                            <Outlines thickness={0.04} color="black" />
-                        </mesh>
-                        <mesh position={[0, -0.55, 0]} geometry={JOINT_SPHERE_GEO} material={glowMaterial} />
-                    </group>
-                </group>
-
-                {/* Hips */}
-                <mesh position={[0, -0.15, 0]} geometry={HIPS_GEO} material={jointMaterial}>
-                    <Outlines thickness={0.04} color="black" />
-                </mesh>
-
-                {/* Legs */}
-                <group position={[0.12, -0.25, 0]}>
-                    <group ref={rightLegRef}>
-                        <mesh position={[0, -0.35, 0]} castShadow geometry={LEG_GEO} material={armorMaterial}>
-                            <Outlines thickness={0.04} color="black" />
-                        </mesh>
-                    </group>
-                </group>
-                <group position={[-0.12, -0.25, 0]}>
-                    <group ref={leftLegRef}>
-                        <mesh position={[0, -0.35, 0]} castShadow geometry={LEG_GEO} material={armorMaterial}>
-                            <Outlines thickness={0.04} color="black" />
-                        </mesh>
-                    </group>
-                </group>
             </group>
 
-            <mesh ref={shadowRef} position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} geometry={SHADOW_GEO} material={shadowMaterial} />
+            <mesh ref={shadowRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]} geometry={SHADOW_GEO}>
+                <meshBasicMaterial color="#000000" opacity={0.4} transparent />
+            </mesh>
         </group>
     );
 };

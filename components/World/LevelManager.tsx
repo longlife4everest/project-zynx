@@ -7,7 +7,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Text3D, Center, Float } from '@react-three/drei';
+import { Text3D, Center, Float, Outlines } from '@react-three/drei';
 import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '../../store';
 import { GameObject, ObjectType, LANE_WIDTH, SPAWN_DISTANCE, REMOVE_DISTANCE, GameStatus, GEMINI_COLORS } from '../../types';
@@ -261,6 +261,11 @@ export const LevelManager: React.FC = () => {
                 moveAmount += MISSILE_SPEED * safeDelta;
             }
 
+            // Horizontal Moving Hazards
+            if (obj.isMoving && obj.baseX !== undefined && obj.moveSpeed !== undefined) {
+                obj.position[0] = obj.baseX + Math.sin(state.clock.elapsedTime * obj.moveSpeed) * (LANE_WIDTH * 0.85);
+            }
+
             // Store previous Z for swept collision check (prevents tunneling)
             const prevZ = obj.position[2];
             obj.position[2] += moveAmount;
@@ -508,13 +513,17 @@ export const LevelManager: React.FC = () => {
                         for (let i = 0; i < countToSpawn; i++) {
                             const lane = availableLanes[i];
                             const laneX = lane * LANE_WIDTH;
+                            const isMovingHaz = Math.random() > 0.6 && level >= 2;
 
                             keptObjects.push({
                                 id: uuidv4(),
                                 type: ObjectType.OBSTACLE,
                                 position: [laneX, OBSTACLE_HEIGHT / 2, spawnZ],
                                 active: true,
-                                color: '#ff0054'
+                                color: '#ff0054',
+                                isMoving: isMovingHaz,
+                                baseX: laneX,
+                                moveSpeed: 2 + Math.random() * 3
                             });
 
                             // Chance for gem on top of obstacle
@@ -581,27 +590,38 @@ const GameEntity: React.FC<{ data: GameObject }> = React.memo(({ data }) => {
             const baseHeight = data.position[1];
 
             if (data.type === ObjectType.SHOP_PORTAL) {
-                visualRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 2) * 0.02);
+                const portalScale = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.05;
+                visualRef.current.scale.setScalar(portalScale);
             } else if (data.type === ObjectType.MISSILE) {
                 // Missile rotation
                 visualRef.current.rotation.z += delta * 20; // Fast spin
                 visualRef.current.position.y = baseHeight;
             } else if (data.type === ObjectType.ALIEN) {
-                // Alien Hover
-                visualRef.current.position.y = baseHeight + Math.sin(state.clock.elapsedTime * 3) * 0.2;
+                // Alien Hover (Squash and Stretch)
+                const hoverOffset = Math.sin(state.clock.elapsedTime * 3);
+                visualRef.current.position.y = baseHeight + hoverOffset * 0.2;
+                visualRef.current.scale.set(1 - hoverOffset * 0.03, 1 + hoverOffset * 0.08, 1 - hoverOffset * 0.03);
                 visualRef.current.rotation.y += delta;
             } else if (data.type !== ObjectType.OBSTACLE) {
-                // Gem/Letter Bobbing
+                // Gem/Letter Bobbing (Squash and Stretch)
                 visualRef.current.rotation.y += delta * 3;
-                const bobOffset = Math.sin(state.clock.elapsedTime * 4 + data.position[0]) * 0.1;
-                visualRef.current.position.y = baseHeight + bobOffset;
+                const bobPhase = state.clock.elapsedTime * 4 + data.position[0];
+                const bobOffset = Math.sin(bobPhase);
+                const scaleY = 1 + bobOffset * 0.2;
+                const scaleXZ = 1 - bobOffset * 0.1;
+
+                visualRef.current.position.y = baseHeight + bobOffset * 0.15;
+                visualRef.current.scale.set(scaleXZ, scaleY, scaleXZ);
 
                 if (shadowRef.current) {
-                    const shadowScale = 1 - bobOffset;
+                    const shadowScale = 1 - bobOffset * 0.1;
                     shadowRef.current.scale.setScalar(shadowScale);
                 }
             } else {
                 visualRef.current.position.y = baseHeight;
+                // Add bouncy squash to obstacles too!
+                const heartbeat = Math.sin(state.clock.elapsedTime * 2 + data.position[0]);
+                visualRef.current.scale.set(1 - heartbeat * 0.05, 1 + heartbeat * 0.1, 1 - heartbeat * 0.05);
             }
         }
     });
@@ -653,6 +673,7 @@ const GameEntity: React.FC<{ data: GameObject }> = React.memo(({ data }) => {
                 {data.type === ObjectType.OBSTACLE && (
                     <group>
                         <mesh geometry={OBSTACLE_GEOMETRY} castShadow receiveShadow>
+                            <Outlines thickness={0.05} color="black" />
                             <meshStandardMaterial
                                 color="#330011"
                                 roughness={0.3}
@@ -679,6 +700,7 @@ const GameEntity: React.FC<{ data: GameObject }> = React.memo(({ data }) => {
                     <group>
                         {/* Saucer Body */}
                         <mesh castShadow geometry={ALIEN_BODY_GEO}>
+                            <Outlines thickness={0.05} color="black" />
                             <meshStandardMaterial color="#4400cc" metalness={0.8} roughness={0.2} />
                         </mesh>
                         {/* Dome */}
@@ -718,6 +740,7 @@ const GameEntity: React.FC<{ data: GameObject }> = React.memo(({ data }) => {
                 {/* --- GEM --- */}
                 {data.type === ObjectType.GEM && (
                     <mesh castShadow geometry={GEM_GEOMETRY}>
+                        <Outlines thickness={0.05} color="black" />
                         <meshStandardMaterial
                             color={data.color}
                             roughness={0}

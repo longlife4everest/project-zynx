@@ -31,6 +31,9 @@ export interface GameObject {
   targetIndex?: number; // Index in the GEMINI target word
   points?: number; // Score value for gems
   hasFired?: boolean; // For Aliens
+  isMoving?: boolean;
+  baseX?: number;
+  moveSpeed?: number;
 }
 
 export const LANE_WIDTH = 2.2;
@@ -42,19 +45,19 @@ export const REMOVE_DISTANCE = 20; // Behind player
 
 // Google-ish Neon Colors: Blue, Red, Yellow, Blue, Green, Red
 export const GEMINI_COLORS = [
-    '#2979ff', // G - Blue
-    '#ff1744', // E - Red
-    '#ffea00', // M - Yellow
-    '#2979ff', // I - Blue
-    '#00e676', // N - Green
-    '#ff1744', // I - Red
+  '#2979ff', // G - Blue
+  '#ff1744', // E - Red
+  '#ffea00', // M - Yellow
+  '#2979ff', // I - Blue
+  '#00e676', // N - Green
+  '#ff1744', // I - Red
 ];
 
 export interface ShopItem {
-    id: string;
-    name: string;
-    description: string;
-    cost: number;
-    icon: any; // Lucide icon component
-    oneTime?: boolean; // If true, remove from pool after buying
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  icon: any; // Lucide icon component
+  oneTime?: boolean; // If true, remove from pool after buying
 }

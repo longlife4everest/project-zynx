@@ -24,6 +24,47 @@
     .font-cyber {
       font-family: 'Bangers', cursive;
     }
+
+    /* Hand-drawn / Sketch Animations */
+    @keyframes doodle-jitter {
+
+      0%,
+      100% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+
+      33% {
+        transform: translate(1px, -1px) rotate(-1deg);
+      }
+
+      66% {
+        transform: translate(-1px, 1px) rotate(1deg);
+      }
+    }
+
+    .doodle-jitter {
+      animation: doodle-jitter 0.2s steps(2, end) infinite;
+    }
+
+    @keyframes doodle-pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    .doodle-pulse {
+      animation: doodle-pulse 2s infinite ease-in-out;
+    }
+
+    .squash-stretch-btn:active {
+      transform: scaleY(0.8) scaleX(1.1);
+    }
   </style>
   <script type="importmap">
 {

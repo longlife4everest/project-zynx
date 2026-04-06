@@ -12,13 +12,14 @@ import { Player } from './components/World/Player';
 import { LevelManager } from './components/World/LevelManager';
 import { Effects } from './components/World/Effects';
 import { HUD } from './components/UI/HUD';
+import { GorillaSwarm } from './components/World/GorillaSwarm';
 import { useStore } from './store';
 
 // Dynamic Camera Controller
 const CameraController = () => {
   const { camera, size } = useThree();
   const { laneCount } = useStore();
-  
+
   useFrame((state, delta) => {
     // Determine if screen is narrow (mobile portrait)
     const aspect = size.width / size.height;
@@ -39,30 +40,48 @@ const CameraController = () => {
     const targetZ = 8.0 + (extraLanes * distFactor);
 
     const targetPos = new THREE.Vector3(0, targetY, targetZ);
-    
+
     // Smoothly interpolate camera position
     camera.position.lerp(targetPos, delta * 2.0);
-    
+
     // Look further down the track to see the end of lanes
     // Adjust look target slightly based on height to maintain angle
-    camera.lookAt(0, 0, -30); 
+    camera.lookAt(0, 0, -30);
   });
-  
+
   return null;
 };
+
+const ScreenShake = () => {
+  const { camera } = useThree();
+  const screenShakeIntensity = useStore(state => state.screenShakeIntensity);
+  const triggerScreenShake = useStore(state => state.triggerScreenShake);
+
+  useFrame((state, delta) => {
+    if (screenShakeIntensity > 0) {
+      // High frequency noise applied after CameraController lerp
+      camera.position.x += (Math.random() - 0.5) * screenShakeIntensity * 0.5;
+      camera.position.y += (Math.random() - 0.5) * screenShakeIntensity * 0.5;
+      triggerScreenShake(Math.max(0, screenShakeIntensity - delta * 4));
+    }
+  });
+
+  return null;
+}
 
 function Scene() {
   return (
     <>
-        <Environment />
-        <group>
-            {/* Attach a userData to identify player group for LevelManager collision logic */}
-            <group userData={{ isPlayer: true }} name="PlayerGroup">
-                 <Player />
-            </group>
-            <LevelManager />
+      <Environment />
+      <group>
+        {/* Attach a userData to identify player group for LevelManager collision logic */}
+        <group userData={{ isPlayer: true }} name="PlayerGroup">
+          <Player />
         </group>
-        <Effects />
+        <LevelManager />
+        <GorillaSwarm />
+      </group>
+      <Effects />
     </>
   );
 }
@@ -73,14 +92,15 @@ function App() {
       <HUD />
       <Canvas
         shadows
-        dpr={[1, 1.5]} 
+        dpr={[1, 1.5]}
         gl={{ antialias: false, stencil: false, depth: true, powerPreference: "high-performance" }}
         // Initial camera, matches the controller base
         camera={{ position: [0, 5.5, 8], fov: 60 }}
       >
         <CameraController />
+        <ScreenShake />
         <Suspense fallback={null}>
-            <Scene />
+          <Scene />
         </Suspense>
       </Canvas>
     </div>
