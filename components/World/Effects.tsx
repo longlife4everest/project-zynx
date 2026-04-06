@@ -10,17 +10,17 @@ import { BlendFunction } from 'postprocessing';
 
 export const Effects: React.FC = () => {
   return (
-    <EffectComposer disableNormalPass multisampling={0}>
-      {/* Tighter bloom to avoid fog: High threshold, moderate radius */}
-      <Bloom 
-        luminanceThreshold={0.75} 
-        mipmapBlur 
-        intensity={1.0} 
-        radius={0.6}
-        levels={8}
+    <EffectComposer multisampling={0}>
+      {/* Minimal bloom for cel-shading */}
+      <Bloom
+        luminanceThreshold={0.9}
+        mipmapBlur
+        intensity={0.2}
+        radius={0.4}
+        levels={4}
       />
-      <Noise opacity={0.05} blendFunction={BlendFunction.OVERLAY} />
-      <Vignette eskil={false} offset={0.1} darkness={0.5} />
+      <Noise opacity={0.25} blendFunction={BlendFunction.OVERLAY} />
+      <Vignette eskil={false} offset={0.1} darkness={0.6} />
     </EffectComposer>
   );
 };
