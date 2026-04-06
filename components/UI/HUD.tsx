@@ -108,7 +108,7 @@ const ShopScreen: React.FC = () => {
 
 export const HUD: React.FC = () => {
     const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed } = useStore();
-    const target = ['G', 'E', 'M', 'I', 'N', 'I'];
+    const target = ['Z', 'Y', 'N', 'X', '!', '!'];
 
     // Common container style
     const containerClass = "absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-8 z-50";
@@ -127,7 +127,7 @@ export const HUD: React.FC = () => {
                     <div className="relative w-full bg-yellow-400 border-b-8 border-black">
                         <img
                             src="https://www.gstatic.com/aistudio/starter-apps/gemini_runner/gemini_runner.png"
-                            alt="Gemini Runner Cover"
+                            alt="Zynx Runner Cover"
                             className="w-full h-auto block filter contrast-125 saturate-150 mix-blend-multiply"
                         />
                         <div className="absolute inset-0 border-4 border-black m-2 pointer-events-none"></div>
@@ -263,7 +263,7 @@ export const HUD: React.FC = () => {
                 </div>
             )}
 
-            {/* Gemini Collection Status - Just below Top Bar */}
+            {/* Zynx Collection Status - Just below Top Bar */}
             <div className="absolute top-16 md:top-24 left-1/2 transform -translate-x-1/2 flex space-x-2 md:space-x-3">
                 {target.map((char, idx) => {
                     const isCollected = collectedLetters.includes(idx);
